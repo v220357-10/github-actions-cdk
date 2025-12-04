@@ -1,0 +1,41 @@
+name: Production Deploy
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CDK CLI (Node) and Python deps
+        run: |
+          npm i -g aws-cdk
+          python -m pip install --upgrade pip
+          # Make sure these are in your repo's requirements.txt, or install explicitly here
+          python -m pip install -r requirements.txt
+          python -m pip install cdk-nag
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: CDK diff (prod)
+        run: cdk diff WebAssetsStack-Prod
+
+      - name: Deploy Prod
+        run: cdk deploy WebAssetsStack-Prod --require-approval never
