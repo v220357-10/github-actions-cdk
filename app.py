@@ -1,28 +1,22 @@
-#!/usr/bin/env python3
 import os
-
 import aws_cdk as cdk
-
-from github_actions.github_actions_stack import GithubActionsStack
-
+from github_actions.web_assets_stack import WebAssetsStack
+from github_actions.github_oidc_stack import GithubOidcStack
 
 app = cdk.App()
-GithubActionsStack(app, "GithubActionsStack",
-    # If you don't specify 'env', this stack will be environment-agnostic.
-    # Account/Region-dependent features and context lookups will not work,
-    # but a single synthesized template can be deployed anywhere.
+account = os.getenv("CDK_DEFAULT_ACCOUNT")
+region = os.getenv("CDK_DEFAULT_REGION")
 
-    # Uncomment the next line to specialize this stack for the AWS Account
-    # and Region that are implied by the current CLI configuration.
+WebAssetsStack(app, "WebAssetsStack-Staging",
+               env=cdk.Environment(account=account, region=region),
+               stage_name="staging")
 
-    #env=cdk.Environment(account=os.getenv('CDK_DEFAULT_ACCOUNT'), region=os.getenv('CDK_DEFAULT_REGION')),
+WebAssetsStack(app, "WebAssetsStack-Prod",
+               env=cdk.Environment(account=account, region=region),
+               stage_name="prod")
 
-    # Uncomment the next line if you know exactly what Account and Region you
-    # want to deploy the stack to. */
-
-    #env=cdk.Environment(account='123456789012', region='us-east-1'),
-
-    # For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
-    )
-
+GithubOidcStack(app, "GithubOidcStack",
+                env=cdk.Environment(account=account, region=region),
+                github_org="v220357-10", repo_name="github-actions-cdk"
+                )
 app.synth()
