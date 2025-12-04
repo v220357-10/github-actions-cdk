@@ -1,0 +1,32 @@
+name: Drift Detection
+on:
+  schedule:
+    - cron: "0 12 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: write
+  issues: write
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - run: |
+          chmod +x ./drift_check.sh
+          ./drift_check.sh WebAssetsStack-Staging "${AWS_REGION}" || echo "STAGING_DRIFT=1" >> $GITHUB_ENV
+          ./drift_check.sh WebAssetsStack-Prod "${AWS_REGION}" || echo "PROD_DRIFT=1" >> $GITHUB_ENV
+      - if: env.STAGING_DRIFT == '1' || env.PROD_DRIFT == '1'
+        run: gh issue create --title "CloudFormation Drift Detected $(date -u +%F)" --body "Drift detected in one or more stacks."
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - if: env.STAGING_DRIFT == '1' || env.PROD_DRIFT == '1'
+        run: exit 1
